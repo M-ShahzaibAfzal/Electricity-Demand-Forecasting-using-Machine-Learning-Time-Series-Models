@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electricity Demand Forecasting</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f9;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        select, input[type="date"], button {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        #chart-container {
+            margin-top: 20px;
+        }
+        #metrics {
+            margin-top: 20px;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Electricity Demand Forecasting</h1>
+        <div class="form-group">
+            <label for="model">Select Model:</label>
+            <select id="model" multiple>
+                <option value="ARIMA">ARIMA</option>
+                <option value="Linear">Linear Regression</option>
+                <option value="Polynomial">Polynomial Regression</option>
+                <option value="Random Forest">Random Forest</option>
+                <option value="XGBoost">XGBoost</option>
+                <option value="LSTM">LSTM</option>
+                <option value="Stacking">Stacking Ensemble</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="start_date">Start Date:</label>
+            <input type="date" id="start_date" value="2018-07-01">
+            <label for="end_date">End Date:</label>
+            <input type="date" id="end_date" value="2018-07-07">
+        </div>
+        <button onclick="fetchPredictions()">Generate Forecast</button>
+        <div id="chart-container">
+            <canvas id="forecastChart"></canvas>
+        </div>
+        <div id="metrics"></div>
+    </div>
+
+    <script>
+        let chart = null;
+
+        function fetchPredictions() {
+            const model = document.getElementById('model').value;
+            const start_date = document.getElementById('start_date').value;
+            const end_date = document.getElementById('end_date').value;
+
+            fetch('/predict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model, start_date, end_date })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+                updateChart(data);
+                updateMetrics(data.metrics);
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        function updateChart(data) {
+            const ctx = document.getElementById('forecastChart').getContext('2d');
+            if (chart) chart.destroy();
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.timestamps,
+                    datasets: [
+                        {
+                            label: 'Actual Demand',
+                            data: data.actual,
+                            borderColor: 'blue',
+                            fill: false
+                        },
+                        {
+                            label: 'Predicted Demand',
+                            data: data.predicted,
+                            borderColor: 'red',
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: { unit: 'hour' },
+                            title: { display: true, text: 'Timestamp' }
+                        },
+                        y: { title: { display: true, text: 'Demand' } }
+                    }
+                }
+            });
+        }
+
+        function updateMetrics(metrics) {
+            const metricsDiv = document.getElementById('metrics');
+            metricsDiv.innerHTML = `
+                <p>MAE: ${metrics.MAE.toFixed(2)}</p>
+                <p>RMSE: ${metrics.RMSE.toFixed(2)}</p>
+                <p>MAPE: ${metrics.MAPE.toFixed(2)}%</p>
+            `;
+        }
+    </script>
+</body>
+</html>
